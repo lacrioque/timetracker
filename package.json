@@ -13,9 +13,14 @@
   },
   "main": "background.js",
   "dependencies": {
+    "@tailwindcss/postcss7-compat": "^2.0.2",
+    "autoprefixer": "9",
     "core-js": "^3.6.5",
+    "lodash": "^4.17.20",
     "nedb": "^1.8.0",
-    "tailwindcss": "^2.0.2",
+    "postcss": "7",
+    "scss-loader": "^0.0.1",
+    "tailwindcss": "npm:@tailwindcss/postcss7-compat",
     "vue": "^3.0.0"
   },
   "devDependencies": {
@@ -32,6 +37,7 @@
     "electron-devtools-installer": "^3.1.0",
     "eslint": "^6.7.2",
     "eslint-plugin-vue": "^7.0.0-0",
+    "sass-loader": "^10.1.1",
     "typescript": "~3.9.3",
     "vue-cli-plugin-electron-builder": "~2.0.0-rc.5"
   },
