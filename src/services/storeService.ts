@@ -3,61 +3,62 @@ import path from "path";
 import { homedir } from "os";
 import { promisify } from "util";
 
-import Datastore from "nedb";
-
-const STORE_FILENAME = path.join(homedir(), ".timetracker", "store.nedb");
+const STORE_FOLDER = path.join(homedir(), ".timetracker");
 
 export default class Storage {
-  private store: Datastore;
+  private storageLoaded: Promise<boolean>;
 
   constructor() {
-    this.checkForFolder().then(() => {
-      this.store = new Datastore({
-        filename: STORE_FILENAME,
-        autoload: true,
-      });
+    this.storageLoaded = this.checkForFolder().then(() => {
+      return true;
     });
   }
 
-  insert(data) {
-    return new Promise((res, rej) => {
-      this.store.insert(data, (err, newDoc) => {
-        if (err) {
-          return rej(err);
-        }
-        res(newDoc);
-      });
-    });
+  write(
+    identifier: string,
+    dataSet:
+      | Record<string, unknown>
+      | Record<string, unknown>[]
+      | string[]
+      | number[]
+  ) {
+    const cleanIdentifier = this.clean(identifier);
+    const asyncWrite = promisify(fs.writeFile);
+    const jsonifiedData = JSON.stringify(dataSet);
+    const buf = Buffer.from(jsonifiedData);
+    return asyncWrite(path.join(STORE_FOLDER, cleanIdentifier), buf);
   }
 
-  find(query, projection = {}) {
-    return new Promise((res, rej) => {
-      this.store.find(query, projection, (err, docs) => {
-        if (err) {
-          return rej(err);
-        }
-        res(docs);
-      });
-    });
+  async read(
+    identifier: string
+  ): Promise<
+    Record<string, unknown> | Record<string, unknown>[] | string[] | number[]
+  > {
+    const cleanIdentifier = this.clean(identifier);
+    const asyncRead = promisify(fs.readFile);
+    const readData = await asyncRead(path.join(STORE_FOLDER, cleanIdentifier));
+    try {
+      const returnData: Record<string, unknown> = JSON.parse(
+        readData.toString("utf-8")
+      );
+      return returnData;
+    } catch (error) {
+      console.error("Error reading data from disk", error);
+      return {};
+    }
   }
 
-  count(query, projection = {}) {
-    return new Promise((res, rej) => {
-      this.store.count(query, (err, count) => {
-        if (err) {
-          return rej(err);
-        }
-        res(count);
-      });
-    });
+  private clean(string: string) {
+    return string.toLowerCase().replace(/[^a-z0-9_-]/g, "_");
   }
 
-  async checkForFolder() {
+  private async checkForFolder() {
     const asyncMkdir = promisify(fs.mkdir);
     try {
-      await asyncMkdir(path.dirname(STORE_FILENAME), { recursive: true });
+      await asyncMkdir(path.dirname(STORE_FOLDER), { recursive: true });
     } catch (err) {
       console.error(err);
+      throw new Error("Creating storage folder failed. Exiting.");
     }
   }
 }

@@ -20,7 +20,7 @@
         <span class="px-12">&nbsp;</span>
         <button
           :class="{ button: true, disabled: activeTask !== null }"
-          click="startActivity"
+          @click="startActivity"
         >
           Start Activity
         </button>
@@ -31,14 +31,15 @@
           End current Activity
         </button>
         <span class="px-12">&nbsp;</span>
-        <select class="button">
-          <option value=""> --No Project-- </option>
+        <select class="button" v-model="selectedProject">
+          <option value="">--No Project--</option>
           <option
-            v-for="project in projects"
+            v-for="project in projectList"
             :key="unWhitespace(project)"
             value="project"
-            >{{ project }}</option
           >
+            {{ project }}
+          </option>
         </select>
         <button class="button" @click="setProject">Set current Project</button>
       </nav>
@@ -52,22 +53,24 @@
       />
       <ActionBar :data-set="dataSet" @change="changeDataSet" />
     </div>
+    <TaskForm
+      v-if="showForm"
+      @update="updateDataSet"
+      @close="() => (showForm = false)"
+      :task="dataSet"
+    />
   </section>
 </template>
 
 <script lang="ts">
-import { defineComponent } from "vue";
+import { defineComponent, ref, computed, Ref } from "vue";
+import { useStore } from "vuex";
 import Table from "./components/Table.vue";
 import DateSelector from "./components/DateSelector.vue";
 import ActionBar from "./components/ActionBar.vue";
-import { STATUS } from "./types";
+import TaskForm from "./components/TaskForm.vue";
 
-interface AppDataDefinition {
-  projects: string[];
-  selectedDate: Date;
-  dataSet: Record<string, unknown> | null;
-  activeTask: Record<string, unknown> | null;
-}
+import { Project, STATUS, Task } from "./types";
 
 export default defineComponent({
   name: "App",
@@ -75,25 +78,70 @@ export default defineComponent({
     Table,
     DateSelector,
     ActionBar,
+    TaskForm,
   },
-  data() {
-    return {
-      projects: [],
-      selectedDate: new Date(),
-      dataSet: null,
-      activeTask: null,
-    } as AppDataDefinition;
-  },
-  computed: {
-    hasPausedTask() {
-      if (
-        this.activeTask !== null &&
-        this.activeTask.status === STATUS.OnHold
-      ) {
-        return true;
+  setup() {
+    const store = useStore();
+
+    const projectList: Ref<string[]> = ref([]);
+    const selectedDate: Ref<Date> = ref(new Date());
+    const activeTask: Ref<Task | null> = ref(null);
+    const selectedProject = ref("");
+    const showForm = ref(false);
+
+    store.dispatch("readFromDB").then(() => {
+      projectList.value = Array.from(store.state.projects).map(
+        (p) => (p as Project).name
+      );
+      activeTask.value = store.state.currentTask;
+      selectedProject.value = store.state.currentProject;
+    });
+
+    const hasPausedTask = computed(() => {
+      return (
+        activeTask.value !== null && activeTask.value.status === STATUS.OnHold
+      );
+    });
+
+    const selectDataSet = (dataSet: Task) => {
+      store.commit("setCurrentTask", dataSet);
+      activeTask.value = dataSet;
+    };
+    const changeDataSet = (dataSet: Task) => {
+      store.commit("setCurrentTask", dataSet);
+      activeTask.value = dataSet;
+    };
+
+    const updateDataSet = (dataSet: Task) => {
+      if (activeTask.value === null) {
+        store.commit("addToTaskList", dataSet);
       }
-      return false;
-    },
+      store.commit("setCurrentTask", dataSet);
+      showForm.value = false;
+    };
+
+    const setProject = () => {
+      for (const project of store.state.projects) {
+        if (project.name === selectedProject.value) {
+          store.commit("setCurrentProject", project);
+          break;
+        }
+      }
+    };
+
+    return {
+      selectedProject,
+      currentProject: computed(() => store.state.currentProject),
+      projectList,
+      selectedDate,
+      activeTask,
+      hasPausedTask,
+      setProject,
+      selectDataSet,
+      changeDataSet,
+      updateDataSet,
+      showForm,
+    };
   },
   methods: {
     unWhitespace(str: string) {
@@ -103,15 +151,8 @@ export default defineComponent({
       console.log("[App] selectDate emitted");
       this.selectedDate = selectedDate;
     },
-    selectDataSet(dataSet: any) {
-      this.dataSet = dataSet;
-    },
-    changeDataSet(dataSet: any) {
-      this.dataSet = dataSet;
-      // do something
-    },
-    setProject() {
-      console.log("Project set");
+    startActivity() {
+      this.showForm = true;
     },
   },
 });

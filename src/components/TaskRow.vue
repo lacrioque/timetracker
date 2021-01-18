@@ -1,11 +1,11 @@
 <template>
-  <div class="flex flex-row w-full grid-cols-6">
-    <div>{{ task.name }}</div>
-    <div>{{ task.description }}</div>
-    <div>{{ task.start }}</div>
-    <div>{{ task.end || "---" }}</div>
-    <div>{{ duration }}</div>
-    <div>{{ task.status }}</div>
+  <div class="w-full grid grid-cols-6">
+    <div class="flex p-1 mx-1">{{ task.name }}</div>
+    <div class="flex p-1 mx-1">{{ task.description }}</div>
+    <div class="flex p-1 mx-1">{{ task.start }}</div>
+    <div class="flex p-1 mx-1">{{ task.end || "---" }}</div>
+    <div class="flex p-1 mx-1">{{ duration }}</div>
+    <div class="flex p-1 mx-1">{{ task.status }}</div>
   </div>
 </template>
 

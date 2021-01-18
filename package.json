@@ -17,12 +17,12 @@
     "autoprefixer": "9",
     "core-js": "^3.6.5",
     "lodash": "^4.17.20",
-    "nedb": "^1.8.0",
     "postcss": "7",
     "scss-loader": "^0.0.1",
     "tailwindcss": "npm:@tailwindcss/postcss7-compat",
     "vue": "^3.0.0",
-    "vuex": "^4.0.0-0"
+    "vuex": "^4.0.0-0",
+    "vuex-persist": "^3.1.3"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^2.33.0",

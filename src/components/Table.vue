@@ -11,13 +11,29 @@
           Currently no tasks in the system.
         </div>
       </template>
-      <TaskRow v-for="(task, i) in tasks" :key="`task-${i}`" :task="task" />
+      <template v-else>
+        <div class="w-full grid grid-cols-6 bg-indigo-200">
+          <div class="flex p-1 mx-1">Task name</div>
+          <div class="flex p-1 mx-1">description</div>
+          <div class="flex p-1 mx-1">Start</div>
+          <div class="flex p-1 mx-1">End</div>
+          <div class="flex p-1 mx-1">Duration</div>
+          <div class="flex p-1 mx-1">Status</div>
+        </div>
+      </template>
+      <TaskRow
+        v-for="(task, i) in tasks"
+        :key="`task-${i}`"
+        :task="task"
+        :class="{ 'bg-indigo-100': i % 2 === 1 }"
+      />
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent } from "vue";
+import { computed, defineComponent } from "vue";
+import { useStore } from "vuex";
 import TaskRow from "./TaskRow.vue";
 
 export default defineComponent({
@@ -29,9 +45,11 @@ export default defineComponent({
       default: () => null,
     },
   },
-  data() {
+  setup() {
+    const store = useStore();
+    const tasks = computed(() => store.state.taskList);
     return {
-      tasks: [],
+      tasks,
     };
   },
 });
