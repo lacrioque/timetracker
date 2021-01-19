@@ -1,76 +1,135 @@
 import { BasicState, Project, Task } from "@/types";
-import { createStore, createLogger } from "vuex";
-import VuexPersistence from "vuex-persist";
+// import { ref, watch } from "vue";
+import { transform } from "lodash";
 
-import StoreService from "../services/storeService";
+import mutations from "./mutations";
+import actions from "./actions";
+import { App, reactive } from "vue";
 
-const myStoreService = new StoreService();
+const LOCALSTORAGE_KEY = "TIMETRACKER";
 
-const basicState: BasicState = {
-  currentTask: null,
-  taskList: [],
-  currentProject: null,
-  projects: new Set(),
+export class AppStorage {
+  private innerState: BasicState = reactive({
+    currentTask: null,
+    taskList: new Map(),
+    currentProject: null,
+    projects: new Set(),
+  });
+
+  get state() {
+    return this.innerState;
+  }
+
+  set state(nv) {
+    console.warn("Setting the state directly is not allowed");
+  }
+
+  constructor() {
+    this.restoreContent();
+  }
+
+  get storageableState() {
+    return {
+      currentTask: this.state.currentTask,
+      taskList: Array.from(this.state.taskList.entries()),
+      currentProject: this.state.currentProject,
+      projects: Array.from(this.state.projects),
+    } as Record<string, any>;
+  }
+
+  set storageableState(stateObj: Record<string, any>) {
+    const parsedObj: BasicState = {
+      currentTask: stateObj.currentTask,
+      taskList: transform(
+        stateObj.taskList,
+        (map: Map<string, Task>, taskArray: [string, Task]) => {
+          map.set(taskArray[0], taskArray[1]);
+          return map;
+        },
+        new Map()
+      ),
+      currentProject: stateObj.currentProject,
+      projects: transform(
+        stateObj.projects,
+        (projects: Set<Project>, project: Project) => {
+          projects.add(project);
+          return projects;
+        },
+        new Set()
+      ),
+    };
+    console.log("Fully parsed new state: ", parsedObj);
+    this.innerState = reactive(parsedObj);
+  }
+
+  private storeContent() {
+    window.localStorage.setItem(
+      LOCALSTORAGE_KEY,
+      JSON.stringify(this.storageableState)
+    );
+  }
+
+  private restoreContent() {
+    const rawState = window.localStorage.getItem(LOCALSTORAGE_KEY);
+    console.log("Restoring state from localStorage", rawState);
+    if (rawState !== null) {
+      try {
+        const stateObj = JSON.parse(rawState);
+        console.log("Parsed state", stateObj);
+        this.storageableState = stateObj;
+      } catch (error) {
+        console.group("[STATE-ERROR]");
+        console.error("Error restoring state");
+        console.warn(error);
+        console.groupEnd();
+      }
+    }
+  }
+
+  private mutations: Map<
+    string,
+    (state: BasicState, ...args: any[]) => void
+  > = new Map(mutations);
+
+  private actions: Map<
+    string,
+    (context: AppStorage, ...payload: any[]) => Promise<unknown> | void
+  > = new Map(actions);
+
+  public commit(mutation: string, ...payload: any) {
+    const toRunMutation = this.mutations.get(mutation);
+    if (toRunMutation === undefined) {
+      console.warn(`| ${mutation} is not a valid mutation`);
+      return;
+    }
+    toRunMutation(this.state, ...payload);
+    this.storeContent();
+  }
+
+  public async dispatch(action: string, ...payload: any) {
+    const toRunAction = this.actions.get(action);
+    if (toRunAction === undefined) {
+      console.warn(`| ${action} is not a valid action`);
+      return;
+    }
+    return toRunAction(this, ...payload);
+  }
+}
+
+const store = new AppStorage();
+
+declare global {
+  interface Window {
+    store: any;
+  }
+}
+if (window) {
+  window.store = store;
+}
+export { store };
+
+export default {
+  install: (app: App) => {
+    app.config.globalProperties.$store = store;
+  },
 };
-
-const vuexLocal = new VuexPersistence({
-  storage: window.localStorage,
-});
-
-export default createStore({
-  state: basicState,
-  mutations: {
-    setCurrentTask(state: BasicState, task: Task) {
-      state.currentTask = task;
-    },
-    unsetCurrentTask(state: BasicState) {
-      state.currentTask = null;
-    },
-    addToTaskList(state: BasicState, task: Task) {
-      state.taskList.push(task);
-    },
-    removeFromTaskList(state: BasicState, task: Task) {
-      state.taskList = state.taskList.filter((t) => t.name !== task.name);
-    },
-    updateTaskList(state: BasicState, taskList: Task[]) {
-      state.taskList = taskList;
-    },
-    setCurrentProject(state: BasicState, project: Project) {
-      state.currentProject = project;
-    },
-    unsetCurrentProject(state: BasicState) {
-      state.currentProject = null;
-    },
-    addProject(state: BasicState, project: Project) {
-      state.projects.add(project);
-    },
-    removeProject(state: BasicState, project: Project) {
-      state.projects.delete(project);
-    },
-    updateProjectList(state: BasicState, projects: Project[]) {
-      state.projects = new Set(projects);
-    },
-  },
-  actions: {
-    storeToDB({ state }) {
-      myStoreService.write(
-        "tasks",
-        (state.taskList as unknown) as Record<string, unknown>[]
-      );
-      myStoreService.write(
-        "projects",
-        (state.projects as unknown) as Record<string, unknown>[]
-      );
-    },
-    async readFromDB({ commit }) {
-      const [tasks, projects] = await Promise.all([
-        myStoreService.read("tasks"),
-        myStoreService.read("projects"),
-      ]);
-      commit("updateTaskList", tasks);
-      commit("updateProjectList", projects);
-    },
-  },
-  modules: {},
-  plugins: [createLogger(), vuexLocal.plugin],
-});

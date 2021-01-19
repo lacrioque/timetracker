@@ -3,28 +3,28 @@
     class="container w-full flex flex-row p-1 border-solid border-2 shadow-md bg-grey-400"
   >
     <button
-      :class="{ button: true, disabled }"
+      :class="{ button: true, disabled, active: curValue === STATUS.Solved }"
       :disabled="disabled"
       @click="setSolved"
     >
       Set Task solved
     </button>
     <button
-      :class="{ button: true, disabled }"
+      :class="{ button: true, disabled, active: curValue === STATUS.OnHold }"
       :disabled="disabled"
       @click="setOnHold"
     >
       Set Task on hold
     </button>
     <button
-      :class="{ button: true, disabled }"
+      :class="{ button: true, disabled, active: curValue === STATUS.Ongoing }"
       :disabled="disabled"
       @click="setOngoing"
     >
       Set Task to ongoing
     </button>
     <button
-      :class="{ button: true, disabled }"
+      :class="{ button: true, disabled, active: curValue === STATUS.Failed }"
       :disabled="disabled"
       @click="setFailed"
     >
@@ -40,44 +40,52 @@ import { STATUS } from "../types";
 export default defineComponent({
   name: "ActionBar",
   props: {
-    dataSet: {
+    value: {
+      type: Number as () => STATUS,
+      default: STATUS.Solved,
+    },
+    activeTask: {
       type: Object,
       default: () => null,
     },
   },
+  setup() {
+    return {
+      STATUS,
+    };
+  },
   computed: {
-    curDataSet: {
-      get(): null | Record<string, unknown> {
-        return this.dataSet;
-      },
-      set(nV: null | Record<string, unknown>) {
-        const newDataSet = Object.assign(this.dataSet || {}, nV);
-        this.$emit("change", newDataSet);
-      },
-    },
     disabled(): boolean {
-      return this.curDataSet === null;
+      return this.activeTask === null;
+    },
+    curValue: {
+      get(): STATUS {
+        return this.value;
+      },
+      set(nV: STATUS): void {
+        this.$emit("change", nV);
+      },
     },
   },
   methods: {
     setSolved() {
-      if (this.curDataSet !== null) {
-        this.curDataSet.status = STATUS.Solved;
+      if (this.activeTask !== null) {
+        this.curValue = STATUS.Solved;
       }
     },
     setOnHold() {
-      if (this.curDataSet !== null) {
-        this.curDataSet.status = STATUS.OnHold;
+      if (this.activeTask !== null) {
+        this.curValue = STATUS.OnHold;
       }
     },
     setOngoing() {
-      if (this.curDataSet !== null) {
-        this.curDataSet.status = STATUS.Ongoing;
+      if (this.activeTask !== null) {
+        this.curValue = STATUS.Ongoing;
       }
     },
     setFailed() {
-      if (this.curDataSet !== null) {
-        this.curDataSet.status = STATUS.Failed;
+      if (this.activeTask !== null) {
+        this.curValue = STATUS.Failed;
       }
     },
   },

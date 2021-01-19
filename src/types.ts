@@ -1,8 +1,9 @@
 export enum STATUS {
   New = 0,
-  Solved = 1,
-  OnHold = 2,
-  Ongoing = 3,
+  Active = 1,
+  Solved = 2,
+  OnHold = 3,
+  Ongoing = 4,
   Failed = 9,
 }
 
@@ -23,7 +24,7 @@ export interface Project {
 
 export interface BasicState {
   currentTask: Task | null;
-  taskList: Task[];
+  taskList: Map<string, Task>;
   currentProject: Project | null;
   projects: Set<Project>;
 }

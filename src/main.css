@@ -10,4 +10,8 @@
   .button.disabled {
     @apply bg-gray-200 text-gray-400 border-0 hover:no-underline hover:bg-gray-200 hover:text-gray-400;
   }
+
+  .button.active {
+    @apply border-2 border-blue-400 bg-blue-300 shadow-sm;
+  }
 }

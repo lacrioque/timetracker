@@ -7,26 +7,23 @@
       <nav class="nav w-full px-2 py-2 mb-3 flex-flex-row justify-items-auto">
         <button
           :class="{ button: true, disabled: activeTask === null }"
-          click="pauseActivity"
+          @click="pauseActivity"
         >
           Pause current Activity
         </button>
         <button
           :class="{ button: true, disabled: !hasPausedTask }"
-          click="resumeActivity"
+          @click="resumeActivity"
         >
           Resume paused Activity
         </button>
         <span class="px-12">&nbsp;</span>
-        <button
-          :class="{ button: true, disabled: activeTask !== null }"
-          @click="startActivity"
-        >
-          Start Activity
+        <button class="button" @click="showFormTrigger">
+          {{ activeTask === null ? "Start Activity" : "Edit Activity" }}
         </button>
         <button
           :class="{ button: true, disabled: activeTask === null }"
-          click="endCurrentActivity"
+          @click="endCurrentActivity"
         >
           End current Activity
         </button>
@@ -45,30 +42,35 @@
       </nav>
     </div>
     <div class="container mx-auto w-full flex flex-col px-2 my-2">
-      <DateSelector :selected-date="selectedDate" @setDate="selectDate" />
+      <div class="flex flex-row">
+        <ActionBar
+          v-show="activeTask !== null"
+          :active-task="activeTask"
+          :value="closeState"
+          @change="changeCloseState"
+        />
+        <DateSelector :selected-date="selectedDate" @setDate="selectDate" />
+      </div>
       <Table
         :active-task="activeTask"
         :selected-date="selectedDate"
         @selectDataSet="selectDataSet"
       />
-      <ActionBar :data-set="dataSet" @change="changeDataSet" />
     </div>
-    <TaskForm
-      v-if="showForm"
-      @update="updateDataSet"
-      @close="() => (showForm = false)"
-      :task="dataSet"
-    />
+    <Modal v-if="showForm" title="Task form" @close="() => (showForm = false)">
+      <TaskForm @update="updateDataSet" :task="activeTask" />
+    </Modal>
   </section>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, computed, Ref } from "vue";
-import { useStore } from "vuex";
+import { store } from "./store";
 import Table from "./components/Table.vue";
 import DateSelector from "./components/DateSelector.vue";
 import ActionBar from "./components/ActionBar.vue";
 import TaskForm from "./components/TaskForm.vue";
+import Modal from "./components/Modal.vue";
 
 import { Project, STATUS, Task } from "./types";
 
@@ -78,24 +80,25 @@ export default defineComponent({
     Table,
     DateSelector,
     ActionBar,
+    Modal,
     TaskForm,
   },
   setup() {
-    const store = useStore();
-
     const projectList: Ref<string[]> = ref([]);
     const selectedDate: Ref<Date> = ref(new Date());
     const activeTask: Ref<Task | null> = ref(null);
+    const closeState: Ref<STATUS> = ref(STATUS.Solved);
     const selectedProject = ref("");
     const showForm = ref(false);
 
-    store.dispatch("readFromDB").then(() => {
-      projectList.value = Array.from(store.state.projects).map(
-        (p) => (p as Project).name
-      );
-      activeTask.value = store.state.currentTask;
-      selectedProject.value = store.state.currentProject;
-    });
+    // store.dispatch("readFromDB")
+    projectList.value = Array.from(store.state.projects).map(
+      (p) => (p as Project).name
+    );
+    activeTask.value = store.state.currentTask;
+    selectedProject.value = store.state.currentProject
+      ? store.state.currentProject.name
+      : "";
 
     const hasPausedTask = computed(() => {
       return (
@@ -104,6 +107,8 @@ export default defineComponent({
     });
 
     const selectDataSet = (dataSet: Task) => {
+      dataSet.status = STATUS.Active;
+      store.commit("modyfyTaskOnList", dataSet);
       store.commit("setCurrentTask", dataSet);
       activeTask.value = dataSet;
     };
@@ -115,8 +120,11 @@ export default defineComponent({
     const updateDataSet = (dataSet: Task) => {
       if (activeTask.value === null) {
         store.commit("addToTaskList", dataSet);
+      } else {
+        store.commit("modyfyTaskOnList", dataSet);
       }
       store.commit("setCurrentTask", dataSet);
+      activeTask.value = dataSet;
       showForm.value = false;
     };
 
@@ -127,6 +135,27 @@ export default defineComponent({
           break;
         }
       }
+    };
+
+    const changeCloseState = (iCloseState: STATUS) => {
+      closeState.value = iCloseState;
+    };
+
+    const endCurrentActivity = () => {
+      if (activeTask.value !== null) {
+        const modifiedState: Task = (() => activeTask.value)();
+        modifiedState.status = closeState.value;
+        store.commit("modyfyTaskOnList", modifiedState);
+        activeTask.value = null;
+        store.commit("unsetCurrentTask");
+      }
+    };
+    const pauseActivity = () => {
+      closeState.value = STATUS.OnHold;
+      endCurrentActivity();
+    };
+    const resumeActivity = () => {
+      // tbd
     };
 
     return {
@@ -141,6 +170,11 @@ export default defineComponent({
       changeDataSet,
       updateDataSet,
       showForm,
+      closeState,
+      changeCloseState,
+      pauseActivity,
+      resumeActivity,
+      endCurrentActivity,
     };
   },
   methods: {
@@ -151,7 +185,7 @@ export default defineComponent({
       console.log("[App] selectDate emitted");
       this.selectedDate = selectedDate;
     },
-    startActivity() {
+    showFormTrigger() {
       this.showForm = true;
     },
   },
